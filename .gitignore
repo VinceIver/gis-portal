@@ -1,0 +1,23 @@
+# env files
+.env
+.env.*
+!.env.example
+
+# node/react
+node_modules/
+dist/
+build/
+.vite/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# ide
+.vscode/
+.idea/
