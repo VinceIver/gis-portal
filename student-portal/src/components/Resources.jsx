@@ -82,9 +82,7 @@ export default function Resources() {
   // Frontend public base (safe even if deployed under subfolder)
   const PUBLIC_BASE = import.meta.env.BASE_URL || "/";
 
-  // ✅ Your template is in: public/RDE-01_Borrowing_Form.docx
-  // So it is served at: <frontend-origin>/RDE-01_Borrowing_Form.docx
-  // If deployed under subfolder, BASE_URL handles it.
+
   const resources = useMemo(
     () => [
       {

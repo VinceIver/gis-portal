@@ -280,7 +280,7 @@ export const listRequests = async (req, res) => {
 };
 
 /**
- * ✅ APPROVE (ADMIN)
+
  */
 export const approveRequest = async (req, res) => {
   const id = Number(req.params.id);

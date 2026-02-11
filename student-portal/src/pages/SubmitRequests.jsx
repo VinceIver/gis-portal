@@ -14,7 +14,7 @@ export default function SubmitRequest({ isModal = false, onClose, onSubmitted })
   const [form, setForm] = useState({
     requester_type: "student",
     requester_code: "",
-    request_type: "", // ✅ now free text (still same backend field)
+    request_type: "", 
     full_name: "",
     email: "",
     contact_number: "",

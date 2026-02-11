@@ -55,7 +55,7 @@ export const createResourceRequest = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
         tracking_code,
-        finalType, // ✅ STUDENT or EXTERNAL
+        finalType, 
         srToSave,
         String(requester_name).trim(),
         String(email || "").trim() || null,
