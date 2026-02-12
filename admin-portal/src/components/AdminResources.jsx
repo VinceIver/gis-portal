@@ -46,6 +46,10 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
   const [deliverUrl, setDeliverUrl] = useState("");
   const [deliverMsg, setDeliverMsg] = useState("");
   const [deliverFile, setDeliverFile] = useState(null);
+
+  // ✅ NEW: remarks for Send Back (required)
+  const [deliverRemarks, setDeliverRemarks] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,7 +62,7 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
         const stillThere = (Array.isArray(data) ? data : []).find((r) => r.id === prev.id);
         return stillThere || (Array.isArray(data) && data[0]) || null;
       });
-    } catch (e) {
+    } catch {
       setRows([]);
       setSelected(null);
     } finally {
@@ -107,11 +111,18 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
     setDeliverUrl("");
     setDeliverMsg("");
     setDeliverFile(null);
+
+    // ✅ NEW: reset remarks
+    setDeliverRemarks("");
+
     setDeliverOpen(true);
   };
 
   const submitDelivery = async () => {
     if (!selected || submitting) return;
+
+    const remarks = deliverRemarks.trim();
+    if (!remarks) return;
 
     if (deliverType === "FILE" && !deliverFile) return;
     if (deliverType === "LINK" && !deliverUrl.trim()) return;
@@ -122,6 +133,10 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
       if (deliverType === "FILE") {
         const fd = new FormData();
         fd.append("delivery_type", "FILE");
+
+        // ✅ send remarks always
+        fd.append("remarks", remarks);
+
         fd.append("file", deliverFile);
 
         await api.post(`/api/resources/admin/requests/${selected.id}/deliveries`, fd, {
@@ -130,6 +145,10 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
       } else {
         await api.post(`/api/resources/admin/requests/${selected.id}/deliveries`, {
           delivery_type: deliverType,
+
+          // ✅ send remarks always
+          remarks,
+
           external_url: deliverType === "LINK" ? deliverUrl.trim() : undefined,
           message: deliverType === "NOTE" ? deliverMsg.trim() : undefined,
         });
@@ -204,7 +223,7 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
                   className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[10px] flex items-center gap-2 disabled:opacity-60"
                 >
                   <FileUp size={16} />
-                  Send Back
+                  {statusTab === "PENDING" ? "Send Back & Approve" : "Send Back"}
                 </button>
               </div>
             )}
@@ -370,10 +389,25 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
       {/* DELIVER MODAL */}
       <AnimatePresence>
         {deliverOpen && (
-          <Modal onClose={() => (submitting ? null : setDeliverOpen(false))} isDarkMode={isDarkMode} title="Send Back (Optional)">
+          <Modal onClose={() => (submitting ? null : setDeliverOpen(false))} isDarkMode={isDarkMode} title="Send Back (Auto-Approve)">
             <div className="space-y-4">
               <div className={`text-sm font-semibold ${subtle}`}>
                 Send a file, link, or note to the requester. This appears in their tracking page.
+                When status is PENDING, Send Back will also auto-approve.
+              </div>
+
+              {/* ✅ NEW: Remarks */}
+              <div className="space-y-2">
+                <label className={`text-[9px] font-black uppercase tracking-[0.35em] ${subtle}`}>
+                  Remarks (required)
+                </label>
+                <textarea
+                  value={deliverRemarks}
+                  onChange={(e) => setDeliverRemarks(e.target.value)}
+                  rows={3}
+                  className={`w-full rounded-2xl border px-4 py-3 outline-none text-sm font-semibold ${inputBase}`}
+                  placeholder="Enter remarks that the student will see..."
+                />
               </div>
 
               <div className={`grid grid-cols-3 gap-2 p-1 rounded-2xl border ${isDarkMode ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-slate-50"}`}>
@@ -438,6 +472,7 @@ export default function AdminResources({ statusTab = "PENDING", isDarkMode = fal
                 <button
                   disabled={
                     submitting ||
+                    !deliverRemarks.trim() ||
                     (deliverType === "FILE" && !deliverFile) ||
                     (deliverType === "LINK" && !deliverUrl.trim()) ||
                     (deliverType === "NOTE" && !deliverMsg.trim())

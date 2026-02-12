@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   Clock,
   XCircle,
+  ChevronRight,
   Paperclip,
 } from "lucide-react";
 import { api } from "../services/api";
@@ -21,57 +22,61 @@ const formatDate = (dateStr) => {
   const d = new Date(dateStr);
   return isNaN(d.getTime())
     ? dateStr
-    : d.toLocaleDateString("en-US", {
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return isNaN(d.getTime())
+    ? dateStr
+    : d.toLocaleString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
       });
 };
 
 const anim = {
-  container: {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-  },
+  container: { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } },
   card: {
     hidden: { opacity: 0, y: 10 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { type: "spring", stiffness: 260, damping: 22 },
-    },
+    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 22 } },
   },
 };
 
 const statusPill = (statusRaw) => {
   const status = String(statusRaw || "").toLowerCase();
-  if (status === "approved")
-    return "bg-emerald-50 text-emerald-700 border-emerald-100";
-  if (status === "rejected")
-    return "bg-rose-50 text-rose-700 border-rose-100";
+  if (status === "approved") return "bg-emerald-50 text-emerald-700 border-emerald-100";
+  if (status === "rejected") return "bg-rose-50 text-rose-700 border-rose-100";
   return "bg-amber-50 text-amber-700 border-amber-100";
 };
 
 function StatusIcon({ status }) {
   const s = String(status || "").toLowerCase();
-  if (s === "approved")
-    return <BadgeCheck size={14} className="text-emerald-600" />;
-  if (s === "rejected")
-    return <XCircle size={14} className="text-rose-600" />;
+  if (s === "approved") return <BadgeCheck size={14} className="text-emerald-600" />;
+  if (s === "rejected") return <XCircle size={14} className="text-rose-600" />;
   return <Clock size={14} className="text-amber-600" />;
 }
 
 export default function Resources() {
   const [openRequest, setOpenRequest] = useState(false);
+
   const [trackCode, setTrackCode] = useState("");
   const [tracking, setTracking] = useState(false);
   const [trackErr, setTrackErr] = useState("");
-  const [trackResult, setTrackResult] = useState(null);
+
+  // When SR code is entered -> list of requests
+  const [requestsList, setRequestsList] = useState([]);
+
+  // When a specific request is opened -> request + deliveries
+  const [selected, setSelected] = useState(null); // { request, deliveries }
 
   // Backend base URL (Express)
   const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  // Convert "/uploads/..." or "/resources/..." from backend to full backend URL
   const toBackendUrl = (url) => {
     if (!url) return "#";
     const u = String(url);
@@ -79,9 +84,8 @@ export default function Resources() {
     return `${API_BASE}${u.startsWith("/") ? "" : "/"}${u}`;
   };
 
-  // Frontend public base (safe even if deployed under subfolder)
+  // Frontend public base
   const PUBLIC_BASE = import.meta.env.BASE_URL || "/";
-
 
   const resources = useMemo(
     () => [
@@ -97,25 +101,44 @@ export default function Resources() {
     [PUBLIC_BASE]
   );
 
+  const fetchTrack = async (codeRaw) => {
+    const code = String(codeRaw || "").trim();
+    if (!code) return null;
+    const { data } = await api.get(`/api/resources/requests/track/${encodeURIComponent(code)}`);
+    return data;
+  };
+
   const runTrack = async () => {
     const code = String(trackCode || "").trim();
     setTrackErr("");
-    setTrackResult(null);
-    if (!code) return setTrackErr("Please enter your SR Code / Tracking Code.");
+    setSelected(null);
+    setRequestsList([]);
+
+    if (!code) {
+      setTrackErr("Please enter your SR Code / Tracking Code.");
+      return;
+    }
 
     setTracking(true);
     try {
-      const { data } = await api.get(
-        `/api/resources/requests/track/${encodeURIComponent(code)}`
-      );
+      const data = await fetchTrack(code);
+
+      // Case A: single request (tracking_code)
       if (data?.request) {
-        setTrackResult({
+        setSelected({
           request: data.request,
           deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
         });
-      } else {
-        setTrackErr("No record found.");
+        return;
       }
+
+      // Case B: multiple requests (sr_code)
+      if (Array.isArray(data?.requests)) {
+        setRequestsList(data.requests);
+        return;
+      }
+
+      setTrackErr("No record found.");
     } catch (err) {
       setTrackErr(err?.response?.data?.message || "No record found for that code.");
     } finally {
@@ -123,8 +146,29 @@ export default function Resources() {
     }
   };
 
-  const r = trackResult?.request;
-  const deliveries = trackResult?.deliveries || [];
+  const openRequestDetails = async (trackingCode) => {
+    setTrackErr("");
+    setSelected(null);
+    setTracking(true);
+    try {
+      const data = await fetchTrack(trackingCode);
+      if (data?.request) {
+        setSelected({
+          request: data.request,
+          deliveries: Array.isArray(data.deliveries) ? data.deliveries : [],
+        });
+      } else {
+        setTrackErr("No record found.");
+      }
+    } catch (err) {
+      setTrackErr(err?.response?.data?.message || "No record found.");
+    } finally {
+      setTracking(false);
+    }
+  };
+
+  const r = selected?.request;
+  const deliveries = selected?.deliveries || [];
 
   return (
     <div className="w-full max-w-7xl mx-auto p-4 md:p-0">
@@ -150,10 +194,7 @@ export default function Resources() {
             className="group inline-flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-xl shadow-red-600/20"
           >
             New Request
-            <PackagePlus
-              size={18}
-              className="group-hover:rotate-12 transition-transform"
-            />
+            <PackagePlus size={18} className="group-hover:rotate-12 transition-transform" />
           </button>
         </div>
 
@@ -165,7 +206,7 @@ export default function Resources() {
               <input
                 value={trackCode}
                 onChange={(e) => setTrackCode(e.target.value)}
-                placeholder="Track your resources via SR Code / Tracking Code..."
+                placeholder="Enter SR Code (students) or Tracking Code (external)..."
                 className="flex-1 bg-transparent outline-none text-sm font-bold text-slate-900 placeholder:text-slate-400"
                 onKeyDown={(e) => e.key === "Enter" && runTrack()}
               />
@@ -178,15 +219,69 @@ export default function Resources() {
               </button>
             </div>
           </div>
-          {trackErr && (
-            <p className="mt-3 text-xs font-bold text-red-500 ml-2">{trackErr}</p>
-          )}
+
+          {trackErr && <p className="mt-3 text-xs font-bold text-red-500 ml-2">{trackErr}</p>}
         </div>
       </div>
 
-      {/* TRACKING RESULTS */}
+      {/* LIST OF REQUESTS (when SR code returns many) */}
+      {requestsList.length > 0 && (
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/30">
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+              Your Requests
+            </div>
+            <div className="text-xs font-bold text-slate-400 mt-1">
+              Showing requests under SR Code: <span className="text-slate-700">{trackCode}</span>
+            </div>
+          </div>
+
+          <div className="p-4 md:p-6 space-y-3">
+            {requestsList.map((req) => (
+              <button
+                key={req.id}
+                onClick={() => openRequestDetails(req.tracking_code)}
+                className="w-full text-left border border-slate-100 hover:border-red-200 bg-white rounded-2xl p-4 transition-all hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <StatusIcon status={req.status} />
+                      <div className="text-sm font-black text-slate-900">
+                        {req.request_type || "Request"}
+                      </div>
+                      <span
+                        className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${statusPill(
+                          req.status
+                        )}`}
+                      >
+                        {req.status}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-slate-500 mt-1">
+                      Submitted: <span className="font-bold text-slate-700">{formatDateTime(req.submitted_at)}</span>
+                    </div>
+
+                    <div className="text-xs text-slate-500 mt-1 line-clamp-1">
+                      Items: <span className="font-bold text-slate-700">{req.requested_items}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <span className="text-[10px] font-black uppercase tracking-widest">Open</span>
+                    <ChevronRight size={18} />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SINGLE REQUEST DETAILS (when a request is selected) */}
       <AnimatePresence mode="wait">
-        {trackResult && (
+        {selected && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -212,9 +307,9 @@ export default function Resources() {
             <div className="p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <MiniInfoCard label="Requester" value={r?.requester_name} />
-                <MiniInfoCard label="Tracking Code" value={r?.tracking_code} />
-                <MiniInfoCard label="SR Code" value={r?.sr_code || "N/A"} />
-                <MiniInfoCard label="Deadline" value={formatDate(r?.needed_date)} />
+                <MiniInfoCard label="SR Code" value={r?.sr_code || "-"} />
+                <MiniInfoCard label="Submitted" value={formatDateTime(r?.submitted_at)} />
+                <MiniInfoCard label="Needed Date" value={formatDate(r?.needed_date)} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -236,22 +331,12 @@ export default function Resources() {
                         download={d.original_name || undefined}
                         className="flex items-center gap-3 bg-white hover:border-red-600 border border-slate-200 px-4 py-2.5 rounded-2xl transition-all group"
                       >
-                        <Paperclip
-                          size={16}
-                          className="text-slate-400 group-hover:text-red-600"
-                        />
-                        <span className="text-xs font-bold text-slate-700">
-                          {d.original_name || "File"}
-                        </span>
+                        <Paperclip size={16} className="text-slate-400 group-hover:text-red-600" />
+                        <span className="text-xs font-bold text-slate-700">{d.original_name || "File"}</span>
                         <Download size={14} className="text-red-600" />
                       </a>
                     ))}
                   </div>
-
-                  <p className="mt-2 text-[11px] text-slate-400">
-                    If your browser opens the file instead of downloading, your
-                    backend should send the file with Content-Disposition: attachment.
-                  </p>
                 </div>
               )}
             </div>
@@ -299,7 +384,7 @@ export default function Resources() {
       <RequestModal
         isOpen={openRequest}
         onClose={() => setOpenRequest(false)}
-        onSuccess={(code) => setTrackCode(code)}
+        onSuccess={(sr) => setTrackCode(sr)} // show SR in input after success
       />
     </div>
   );

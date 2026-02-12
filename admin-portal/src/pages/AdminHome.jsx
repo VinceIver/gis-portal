@@ -10,12 +10,14 @@ import {
   Users,
   BookOpen,
   FileStack,
+  BarChart3,
 } from "lucide-react";
 
 import AdminTrainings from "../components/AdminTrainings";
 import Tooltip from "../components/Tooltip";
 import RequestsPanel from "../components/RequestPanel";
 import AdminDashboard from "../components/AdminDashboard";
+import AdminReports from "../components/AdminReports";
 import AdminConsultations from "../components/AdminConsultations";
 import AdminResources from "../components/AdminResources";
 import { api } from "../services/api";
@@ -33,6 +35,7 @@ export default function AdminHome() {
 
   const tabIcons = {
     DASHBOARD: <LayoutDashboard size={20} />,
+    REPORTS: <BarChart3 size={20} />,
     CONSULTATIONS: <Users size={20} />,
     TRAININGS: <BookOpen size={20} />,
     RESOURCES: <FileStack size={20} />,
@@ -57,7 +60,7 @@ export default function AdminHome() {
     CONSULTATIONS: "consultation",
   };
 
-  const tabs = ["DASHBOARD", "CONSULTATIONS", "TRAININGS", "RESOURCES"];
+  const tabs = ["DASHBOARD", "REPORTS", "CONSULTATIONS", "TRAININGS", "RESOURCES"];
   const statuses = ["PENDING", "APPROVED", "REJECTED"];
 
   return (
@@ -202,7 +205,7 @@ export default function AdminHome() {
                     {isRemoveMode ? "Done" : "Remove"}
                   </button>
                 </motion.div>
-              ) : activeTab === "DASHBOARD" ? (
+              ) : activeTab === "DASHBOARD" || activeTab === "REPORTS" ? (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -246,6 +249,8 @@ export default function AdminHome() {
         <div className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
           {activeTab === "DASHBOARD" ? (
             <AdminDashboard isDarkMode={isDarkMode} />
+          ) : activeTab === "REPORTS" ? (
+            <AdminReports isDarkMode={isDarkMode} />
           ) : activeTab === "TRAININGS" ? (
             <AdminTrainings
               isDarkMode={isDarkMode}

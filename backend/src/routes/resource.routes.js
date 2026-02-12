@@ -27,10 +27,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
+// PUBLIC
 router.post("/requests", createResourceRequest);
-
-
 router.get("/requests/track/:code", trackResourceRequest);
 
 // ADMIN
@@ -38,8 +36,8 @@ router.get("/admin/requests", requireAdmin, adminListResourceRequests);
 router.patch("/admin/requests/:id/approve", requireAdmin, adminApproveResourceRequest);
 router.patch("/admin/requests/:id/reject", requireAdmin, adminRejectResourceRequest);
 
-
-router.post(    
+// SEND BACK (FILE/LINK/NOTE) + AUTO-APPROVE happens in controller
+router.post(
   "/admin/requests/:id/deliveries",
   requireAdmin,
   upload.single("file"),
